@@ -57,7 +57,7 @@ const title = item ? item.title : 'Новый материал';
 
   {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже. Файл изображения нужно выбрать заново.</p>}
 
-  <form class="form" method="post" enctype="multipart/form-data">
+  <form class="form" method="post" enctype="multipart/form-data" data-track-changes>
     <Field label="Заголовок" wide error={errors.title}>
       <input name="title" value={values.title} required maxlength="120" />
     </Field>

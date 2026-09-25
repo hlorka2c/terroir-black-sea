@@ -40,7 +40,7 @@ const ogImage = getOgImage();
 
   {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже.</p>}
 
-  <form method="post" class="settings" enctype="multipart/form-data">
+  <form method="post" class="settings" enctype="multipart/form-data" data-track-changes>
     {SETTINGS_GROUPS.map((group) => (
       <fieldset class="form">
         <legend>{group.title}</legend>

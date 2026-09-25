@@ -53,6 +53,56 @@ const notice = notices[Astro.url.searchParams.get('notice') ?? ''];
   </body>
 </html>
 
+<script>
+  const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+  // Show the chosen image right away and reject files the server would refuse anyway.
+  document.querySelectorAll<HTMLInputElement>('input[type="file"][accept*="image"]').forEach((input) => {
+    let objectUrl: string | undefined;
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      const field = input.closest('.field');
+      field?.querySelector('[data-upload-error]')?.remove();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (!file) return;
+
+      if (file.size > MAX_UPLOAD_BYTES) {
+        input.value = '';
+        const error = document.createElement('small');
+        error.className = 'field__error';
+        error.dataset.uploadError = '';
+        error.setAttribute('role', 'alert');
+        error.textContent = `Файл весит ${(file.size / 1024 / 1024).toFixed(1)} МБ, максимум — 15 МБ`;
+        input.after(error);
+        return;
+      }
+
+      let preview = field?.querySelector<HTMLImageElement>('img.preview');
+      if (!preview) {
+        preview = document.createElement('img');
+        preview.className = 'preview';
+        preview.alt = '';
+        input.before(preview);
+      }
+      objectUrl = URL.createObjectURL(file);
+      preview.removeAttribute('srcset');
+      preview.src = objectUrl;
+    });
+  });
+
+  // Ask before leaving a page with edits that were not saved.
+  let hasUnsavedChanges = false;
+  document.querySelectorAll<HTMLFormElement>('form[data-track-changes]').forEach((form) => {
+    const markDirty = () => { hasUnsavedChanges = true; };
+    form.addEventListener('input', markDirty);
+    form.addEventListener('change', markDirty);
+    form.addEventListener('submit', () => { hasUnsavedChanges = false; });
+  });
+  window.addEventListener('beforeunload', (event) => {
+    if (hasUnsavedChanges) event.preventDefault();
+  });
+</script>
+
 <style is:global>
   :root {
     --ink: #101510; --chalk: #f7f3ea; --limestone: #eee9df; --grape: #5b2534; --clay: #b75c3d;
