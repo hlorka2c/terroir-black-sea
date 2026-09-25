@@ -1,12 +1,12 @@
 ---
-import { Image } from 'astro:assets';
-import mezybImage from '../assets/terroir-mezyb-placeholder.png';
-import rockyImage from '../assets/terroir-rocky-placeholder.png';
+import UploadedImage from './UploadedImage.astro';
+import type { Terroir } from '../lib/content';
 
-const terroirs = [
-  { index: '01', name: 'Мезыбь', image: mezybImage, alt: 'Виноградник на известняковом склоне в Мезыби', description: 'Участок у подножия Маркотхского хребта. Здесь почва, высота и открытость склона создают собственный ритм созревания.' },
-  { index: '02', name: 'Скалистый берег', image: rockyImage, alt: 'Виноградные лозы на скалистом побережье', description: 'Виноградник в районе Варваровки. Рельеф и воздушные потоки формируют другое прочтение близости Чёрного моря.' },
-];
+interface Props {
+  terroirs: Terroir[];
+}
+
+const { terroirs } = Astro.props;
 ---
 
 <section class="terroirs" id="terroirs" aria-labelledby="terroirs-title">
@@ -16,11 +16,11 @@ const terroirs = [
   </div>
 
   <div class="terroirs__cards shell">
-    {terroirs.map((terroir) => (
+    {terroirs.map((terroir, index) => (
       <a class="terroir-card" href="#map" data-reveal aria-label={'Показать терруар «' + terroir.name + '» на карте'}>
         <div class="terroir-card__media">
-          <Image src={terroir.image} widths={[640, 960, 1280]} sizes="(max-width: 760px) 100vw, 50vw" format="webp" quality={84} alt={terroir.alt} loading="lazy" />
-          <span class="terroir-card__index">{terroir.index}</span>
+          <UploadedImage media={terroir.image} sizes="(max-width: 760px) 100vw, 50vw" alt={terroir.imageAlt} />
+          <span class="terroir-card__index">{String(index + 1).padStart(2, '0')}</span>
         </div>
         <div class="terroir-card__body">
           <div>

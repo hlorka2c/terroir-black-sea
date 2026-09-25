@@ -1,0 +1,14 @@
+---
+import { imageAttrs, type Media } from '../lib/media';
+
+interface Props {
+  media: Media | null;
+  alt: string;
+  sizes: string;
+  loading?: 'lazy' | 'eager';
+}
+
+const { media, alt, sizes, loading = 'lazy' } = Astro.props;
+---
+
+{media && <img {...imageAttrs(media)} sizes={sizes} alt={alt} loading={loading} decoding="async" />}
