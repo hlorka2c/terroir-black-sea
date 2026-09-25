@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS sessions (
  */
 const MIGRATIONS = [
   "ALTER TABLE journal ADD COLUMN url TEXT NOT NULL DEFAULT ''",
+  'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
 ];
 
 export function migrate(database: DatabaseSync): void {

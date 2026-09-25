@@ -1,7 +1,7 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { ADMIN_LOGIN, ADMIN_PASSWORD } from 'astro:env/server';
-import { db } from './db';
+import { db, transaction } from './db';
 
 const COOKIE = 'admin_session';
 const COOKIE_PATH = '/admin';
@@ -21,7 +21,38 @@ export function checkCredentials(login: string, password: string): boolean {
 /** Only token hashes are stored, so a leaked database does not expose live sessions. */
 const tokenId = (token: string) => sha256(token).toString('hex');
 
+const credentialsHash = (login: string, password: string, salt: string) =>
+  scryptSync(`${login}\n${password}`, salt, 32).toString('hex');
+
+/**
+ * Sessions would otherwise outlive a password change. The database keeps a salted scrypt hash of the
+ * credentials (never the password itself); if it no longer matches, every session is revoked.
+ * Returns true when sessions were revoked.
+ */
+export function revokeSessionsIfCredentialsChanged(login: string, password: string): boolean {
+  const row = db().prepare("SELECT value FROM meta WHERE key = 'credentials'").get() as { value: string } | undefined;
+  const [salt, stored] = row?.value.split(':') ?? [];
+  if (salt && stored && credentialsHash(login, password, salt) === stored) return false;
+
+  const newSalt = randomBytes(16).toString('hex');
+  transaction(() => {
+    db().exec('DELETE FROM sessions');
+    db().prepare("INSERT INTO meta (key, value) VALUES ('credentials', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+      .run(`${newSalt}:${credentialsHash(login, password, newSalt)}`);
+  });
+  return true;
+}
+
+// Credentials come from the environment, so they can only change with a restart: checking once is enough.
+let credentialsChecked = false;
+function ensureCredentialsCurrent(): void {
+  if (credentialsChecked) return;
+  revokeSessionsIfCredentialsChanged(ADMIN_LOGIN, ADMIN_PASSWORD);
+  credentialsChecked = true;
+}
+
 export function createSession(cookies: AstroCookies, url: URL): void {
+  ensureCredentialsCurrent();
   const token = randomBytes(32).toString('base64url');
   const expiresAt = Date.now() + SESSION_TTL_MS;
   db().prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
@@ -38,6 +69,7 @@ export function createSession(cookies: AstroCookies, url: URL): void {
 export function isAuthenticated(cookies: AstroCookies): boolean {
   const token = cookies.get(COOKIE)?.value;
   if (!token) return false;
+  ensureCredentialsCurrent();
   const row = db().prepare('SELECT expires_at FROM sessions WHERE id = ?').get(tokenId(token)) as
     | { expires_at: number }
     | undefined;

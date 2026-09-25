@@ -2,6 +2,7 @@ import type { AstroCookies } from 'astro';
 import { describe, expect, it } from 'vitest';
 import {
   checkCredentials, clearFailures, createSession, destroySession, isAuthenticated, isRateLimited, registerFailure,
+  revokeSessionsIfCredentialsChanged,
 } from '../src/lib/auth';
 import { db } from '../src/lib/db';
 
@@ -96,5 +97,24 @@ describe('login rate limiting', () => {
 
     clearFailures(ip);
     expect(isRateLimited(ip)).toBe(false);
+  });
+});
+
+describe('password change', () => {
+  it('revokes every session when the credentials change', () => {
+    const { cookies } = fakeCookies();
+    createSession(cookies, http);
+
+    expect(revokeSessionsIfCredentialsChanged('admin', 'correct-horse-battery')).toBe(false);
+    expect(isAuthenticated(cookies)).toBe(true);
+
+    expect(revokeSessionsIfCredentialsChanged('admin', 'a-brand-new-password')).toBe(true);
+    expect(isAuthenticated(cookies)).toBe(false);
+  });
+
+  it('stores a salted hash, never the password', () => {
+    const { value } = db().prepare("SELECT value FROM meta WHERE key = 'credentials'").get() as { value: string };
+    expect(value).not.toContain('a-brand-new-password');
+    expect(value).toMatch(/^[0-9a-f]{32}:[0-9a-f]{64}$/);
   });
 });
