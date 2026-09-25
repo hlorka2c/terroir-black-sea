@@ -1,19 +1,29 @@
+---
+import type { Settings } from '../lib/settings';
+
+interface Props {
+  settings: Settings;
+}
+
+const { settings } = Astro.props;
+---
+
 <section class="buy" id="buy" aria-labelledby="buy-title">
   <div class="buy__layout shell">
     <div class="buy__intro" data-reveal>
       <h2 class="section-title" id="buy-title">Где найти<br /><em>коллекцию</em></h2>
-      <p>Узнайте о точках присутствия или оставьте запрос на сотрудничество с проектом.</p>
+      <p>{settings.buyIntro}</p>
     </div>
 
     <div class="buy__routes">
       <a class="buy-route" href="#contacts" data-reveal>
-        <div><span>Для знакомства с коллекцией</span><h3>Винотеки и рестораны</h3></div>
-        <p>Подскажем ближайшее место, где можно найти и попробовать вина проекта.</p>
+        <div><span>Для знакомства с коллекцией</span><h3>{settings.buyRetailTitle}</h3></div>
+        <p>{settings.buyRetailText}</p>
         <i aria-hidden="true">↗</i>
       </a>
       <a class="buy-route" href="#contacts" data-reveal>
-        <div><span>Для профессиональных партнёров</span><h3>Ресторанам и винотекам</h3></div>
-        <p>Предоставим информацию о доступности вин и условиях сотрудничества.</p>
+        <div><span>Для профессиональных партнёров</span><h3>{settings.buyPartnersTitle}</h3></div>
+        <p>{settings.buyPartnersText}</p>
         <i aria-hidden="true">↗</i>
       </a>
     </div>

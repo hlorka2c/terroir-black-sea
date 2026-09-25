@@ -1,0 +1,65 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Field from '../../components/admin/Field.astro';
+import { hasErrors, validate, type FieldErrors, type FormValues } from '../../lib/admin-form';
+import { SETTINGS_GROUPS, getSettings, saveSettings, settingsInput, type Settings } from '../../lib/settings';
+
+let errors: FieldErrors = {};
+let values: FormValues = getSettings();
+
+if (Astro.request.method === 'POST') {
+  const result = validate(settingsInput, await Astro.request.formData());
+  ({ values, errors } = result);
+  if (result.data) {
+    saveSettings(result.data as Settings);
+    return Astro.redirect('/admin/settings?notice=saved');
+  }
+  Astro.response.status = 422;
+}
+---
+
+<AdminLayout title="Настройки">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Тексты и контакты</p>
+      <h1>Настройки</h1>
+    </div>
+  </div>
+
+  {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже.</p>}
+
+  <form method="post" class="settings">
+    {SETTINGS_GROUPS.map((group) => (
+      <fieldset class="form">
+        <legend>{group.title}</legend>
+        {group.fields.map((field) => (
+          <Field label={field.label} hint={'hint' in field ? field.hint : undefined} error={errors[field.key]} wide={field.type === 'textarea'}>
+            {field.type === 'textarea' ? (
+              <textarea name={field.key} maxlength={field.max} rows="3" required={!('optional' in field)}>{values[field.key]}</textarea>
+            ) : (
+              <input
+                name={field.key}
+                type={field.type}
+                value={values[field.key]}
+                maxlength={field.max}
+                required={!('optional' in field)}
+                placeholder={field.type === 'url' ? 'https://' : undefined}
+              />
+            )}
+          </Field>
+        ))}
+      </fieldset>
+    ))}
+    <div class="settings__actions">
+      <button class="button" type="submit">Сохранить</button>
+      <a class="button button--ghost" href="/" target="_blank" rel="noopener">Посмотреть на сайте ↗</a>
+    </div>
+  </form>
+</AdminLayout>
+
+<style>
+  .settings { display: grid; gap: 1.5rem; }
+  .settings fieldset { margin: 0; min-width: 0; }
+  .settings legend { float: left; width: 100%; margin-bottom: 0.5rem; font: 400 1.6rem/1.1 var(--font-display); letter-spacing: -0.03em; }
+  .settings__actions { position: sticky; bottom: 0; display: flex; gap: 1rem; padding: 1rem 0; background: var(--limestone); border-top: 1px solid var(--line); }
+</style>

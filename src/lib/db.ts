@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS journal (
   published INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   expires_at INTEGER NOT NULL
