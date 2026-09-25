@@ -4,24 +4,40 @@ import { getMedia, type Media } from './media';
 
 type Row = Record<string, any>;
 
-const text = (max: number) => z.string().trim().max(max, `Не длиннее ${max} символов`);
-const required = (max: number) => text(max).min(1, 'Обязательное поле');
-const sort = z.coerce.number().int().min(0).max(9999);
-const published = z.preprocess((v) => v === 'on', z.boolean());
+// Fallback for anything without a custom message below; form fields all have their own wording.
+z.config(z.locales.ru());
 
+const text = (max: number) =>
+  z.string({ error: 'Заполните поле' }).trim().max(max, `Не длиннее ${max} символов`);
+const required = (max: number) => text(max).min(1, 'Обязательное поле');
+const integer = (message: string) => z.coerce.number({ error: message }).int(message);
+const sort = integer('Введите целое число от 0 до 9999').min(0, 'Не меньше 0').max(9999, 'Не больше 9999');
+const published = z.preprocess((v) => v === 'on', z.boolean());
+const choice = <const T extends readonly [string, ...string[]]>(values: T) =>
+  z.enum(values, { error: 'Выберите значение из списка' });
+
+const POLYGON_FORMAT = 'Формат: [[широта, долгота], [широта, долгота], ...]';
 const polygon = z
   .string()
   .transform((value, ctx) => {
     try {
       return JSON.parse(value.trim() || '[]');
     } catch {
-      ctx.addIssue({ code: 'custom', message: 'Некорректный JSON' });
+      ctx.addIssue({ code: 'custom', message: `Не удалось разобрать координаты. ${POLYGON_FORMAT}` });
       return z.NEVER;
     }
   })
   .pipe(
-    z.array(z.tuple([z.number().min(-90).max(90), z.number().min(-180).max(180)]))
-      .refine((points) => points.length === 0 || points.length >= 3, 'Нужно минимум 3 точки или пустой контур'),
+    z.array(
+      z.tuple(
+        [
+          z.number({ error: 'Координаты должны быть числами' }).min(-90, 'Широта от −90 до 90').max(90, 'Широта от −90 до 90'),
+          z.number({ error: 'Координаты должны быть числами' }).min(-180, 'Долгота от −180 до 180').max(180, 'Долгота от −180 до 180'),
+        ],
+        { error: `Каждая точка — пара чисел. ${POLYGON_FORMAT}` },
+      ),
+      { error: POLYGON_FORMAT },
+    ).refine((points) => points.length === 0 || points.length >= 3, 'Нужно минимум 3 точки или пустой контур'),
   );
 
 export const terroirInput = z.object({
@@ -35,15 +51,18 @@ export const terroirInput = z.object({
   published,
 });
 
+const PRICE_ERROR = 'Цена — целое число рублей, без копеек';
+
 export const wineInput = z.object({
   name: required(80),
   price: z.preprocess(
-    (v) => (typeof v === 'string' && v.trim() !== '' ? v.replace(/\s/g, '') : null),
-    z.coerce.number().int('Целое число').min(0).max(10_000_000).nullable(),
+    // Editors paste prices as "3 200 ₽"; spaces and the currency sign are formatting, not data.
+    (v) => (typeof v === 'string' && v.trim() !== '' ? v.replace(/[\s₽]/g, '') : null),
+    integer(PRICE_ERROR).min(0, 'Цена не может быть отрицательной').max(10_000_000, 'Слишком большая цена').nullable(),
   ),
   style: text(80),
-  terroirId: z.coerce.number().int().positive('Выберите терруар'),
-  imagePosition: z.enum(['left', 'center', 'right']),
+  terroirId: integer('Выберите терруар').positive('Выберите терруар'),
+  imagePosition: choice(['left', 'center', 'right']),
   sort,
   published,
 });
@@ -51,7 +70,7 @@ export const wineInput = z.object({
 export const JOURNAL_KINDS = { film: 'Фильм', research: 'Исследование', interview: 'Интервью' } as const;
 
 export const journalInput = z.object({
-  kind: z.enum(['film', 'research', 'interview']),
+  kind: choice(['film', 'research', 'interview']),
   title: required(120),
   description: text(400),
   duration: text(40),
