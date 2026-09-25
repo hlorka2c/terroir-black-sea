@@ -18,5 +18,8 @@ export const onRequest = defineMiddleware(async ({ url, cookies, redirect }, nex
   const response = await next();
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  // Stricter than the site-wide headers in server.mjs: the admin is never framed, not even by the site itself.
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'");
   return response;
 });

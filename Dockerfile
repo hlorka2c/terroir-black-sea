@@ -26,6 +26,7 @@ ENV NODE_ENV=production \
 COPY --from=build --chown=node:node /app/package.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/server.mjs ./
 COPY --from=build --chown=node:node /app/src/assets ./seed-assets
 
 RUN mkdir -p /data && chown node:node /data
@@ -37,4 +38,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1
 
-CMD ["node", "dist/server/entry.mjs"]
+CMD ["node", "server.mjs"]
