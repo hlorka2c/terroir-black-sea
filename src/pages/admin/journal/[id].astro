@@ -1,0 +1,99 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Field from '../../../components/admin/Field.astro';
+import {
+  JOURNAL_KINDS, deleteJournalItem, getJournalItem, journalInput, listJournal, saveJournalItem,
+} from '../../../lib/content';
+import { hasErrors, parseId, uploadedImage, validate, type FieldErrors, type FormValues } from '../../../lib/admin-form';
+import { imageAttrs } from '../../../lib/media';
+
+const id = parseId(Astro.params.id);
+const item = id ? getJournalItem(id) : null;
+if (id === undefined || (id !== null && !item)) return new Response('Not found', { status: 404 });
+
+let errors: FieldErrors = {};
+let values: FormValues = item
+  ? {
+      kind: item.kind, title: item.title, description: item.description, duration: item.duration,
+      imageAlt: item.imageAlt, sort: String(item.sort), published: item.published ? 'on' : '',
+    }
+  : {
+      kind: 'film', title: '', description: '', duration: '', imageAlt: '',
+      sort: String((listJournal().at(-1)?.sort ?? 0) + 10), published: 'on',
+    };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+
+  if (form.get('_action') === 'delete' && id) {
+    deleteJournalItem(id);
+    return Astro.redirect('/admin/journal?notice=deleted');
+  }
+
+  const result = validate(journalInput, form);
+  ({ values, errors } = result);
+  if (result.data) {
+    try {
+      const imageId = await uploadedImage(form);
+      const savedId = saveJournalItem(id, result.data, imageId);
+      return Astro.redirect(`/admin/journal/${savedId}?notice=${id ? 'saved' : 'created'}`);
+    } catch (error) {
+      errors.image = error instanceof Error ? error.message : 'Не удалось сохранить';
+    }
+  }
+  Astro.response.status = 422;
+}
+
+const title = item ? item.title : 'Новый материал';
+---
+
+<AdminLayout title={title}>
+  <div class="page-head">
+    <div>
+      <p class="eyebrow"><a href="/admin/journal">← Весь журнал</a></p>
+      <h1>{title}</h1>
+    </div>
+  </div>
+
+  {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже. Файл изображения нужно выбрать заново.</p>}
+
+  <form class="form" method="post" enctype="multipart/form-data">
+    <Field label="Заголовок" wide error={errors.title}>
+      <input name="title" value={values.title} required maxlength="120" />
+    </Field>
+    <Field label="Тип" error={errors.kind}>
+      <select name="kind">
+        {Object.entries(JOURNAL_KINDS).map(([value, label]) => (
+          <option value={value} selected={value === values.kind}>{label}</option>
+        ))}
+      </select>
+    </Field>
+    <Field label="Длительность" hint="Например: 04:20 или 8 минут" error={errors.duration}>
+      <input name="duration" value={values.duration} maxlength="40" />
+    </Field>
+    <Field label="Описание" wide error={errors.description}>
+      <textarea name="description" maxlength="400">{values.description}</textarea>
+    </Field>
+    <Field label="Обложка" wide error={errors.image} hint="JPG, PNG или WebP до 15 МБ">
+      {item?.image && <img class="preview" {...imageAttrs(item.image)} sizes="40rem" alt="" />}
+      <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/avif" />
+    </Field>
+    <Field label="Описание обложки (alt)" wide error={errors.imageAlt}>
+      <input name="imageAlt" value={values.imageAlt} maxlength="200" />
+    </Field>
+    <Field label="Порядок" hint="Чем меньше число, тем выше" error={errors.sort}>
+      <input name="sort" type="number" min="0" max="9999" value={values.sort} required />
+    </Field>
+    <label class="checkbox field--wide">
+      <input type="checkbox" name="published" checked={values.published === 'on'} />
+      Показывать на сайте
+    </label>
+    <div class="form-actions">
+      <button class="button" type="submit">Сохранить</button>
+      <a class="button button--ghost" href="/admin/journal">Отмена</a>
+      {item && (
+        <button class="button button--danger" type="submit" name="_action" value="delete" formnovalidate onclick="return confirm('Удалить материал?')">Удалить</button>
+      )}
+    </div>
+  </form>
+</AdminLayout>

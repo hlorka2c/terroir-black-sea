@@ -1,0 +1,42 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { JOURNAL_KINDS, listJournal } from '../../../lib/content';
+import { imageAttrs } from '../../../lib/media';
+
+const items = listJournal();
+---
+
+<AdminLayout title="Журнал">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Фильмы, исследования, интервью</p>
+      <h1>Журнал</h1>
+    </div>
+    <a class="button" href="/admin/journal/new">+ Добавить материал</a>
+  </div>
+
+  {items.length === 0 ? (
+    <p class="empty">Материалов пока нет.</p>
+  ) : (
+    <table class="table">
+      <thead>
+        <tr><th></th><th>Заголовок</th><th>Тип</th><th class="hide-mobile">Длительность</th><th>Статус</th></tr>
+      </thead>
+      <tbody>
+        {items.map((item, index) => (
+          <tr>
+            <td>{item.image && <img class="thumb" {...imageAttrs(item.image)} sizes="72px" alt="" />}</td>
+            <td>
+              <a href={`/admin/journal/${item.id}`}>{item.title}</a>
+              {index === 0 && item.published && <span class="badge">Главный</span>}
+            </td>
+            <td>{JOURNAL_KINDS[item.kind]}</td>
+            <td class="hide-mobile">{item.duration}</td>
+            <td>{item.published ? <span class="badge">На сайте</span> : <span class="badge badge--draft">Скрыто</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+  <p class="eyebrow" style="margin-top: 1rem">Первый опубликованный материал показывается на сайте крупной карточкой</p>
+</AdminLayout>

@@ -1,0 +1,39 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { formatPrice, listWines } from '../../../lib/content';
+import { imageAttrs } from '../../../lib/media';
+
+const wines = listWines();
+---
+
+<AdminLayout title="Вина">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Коллекция</p>
+      <h1>Вина</h1>
+    </div>
+    <a class="button" href="/admin/wines/new">+ Добавить вино</a>
+  </div>
+
+  {wines.length === 0 ? (
+    <p class="empty">Вин пока нет.</p>
+  ) : (
+    <table class="table">
+      <thead>
+        <tr><th></th><th>Название</th><th>Терруар</th><th class="hide-mobile">Стиль</th><th>Цена</th><th>Статус</th></tr>
+      </thead>
+      <tbody>
+        {wines.map((wine) => (
+          <tr>
+            <td>{wine.image && <img class="thumb" {...imageAttrs(wine.image)} sizes="72px" alt="" />}</td>
+            <td><a href={`/admin/wines/${wine.id}`}>{wine.name}</a></td>
+            <td>{wine.terroirName}</td>
+            <td class="hide-mobile">{wine.style}</td>
+            <td>{formatPrice(wine.price)}</td>
+            <td>{wine.published ? <span class="badge">На сайте</span> : <span class="badge badge--draft">Скрыто</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</AdminLayout>

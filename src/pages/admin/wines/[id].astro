@@ -1,0 +1,105 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Field from '../../../components/admin/Field.astro';
+import { deleteWine, getWine, listTerroirs, listWines, saveWine, wineInput } from '../../../lib/content';
+import { hasErrors, parseId, uploadedImage, validate, type FieldErrors, type FormValues } from '../../../lib/admin-form';
+import { imageAttrs } from '../../../lib/media';
+
+const id = parseId(Astro.params.id);
+const wine = id ? getWine(id) : null;
+if (id === undefined || (id !== null && !wine)) return new Response('Not found', { status: 404 });
+
+const terroirs = listTerroirs();
+const positions = { left: 'Левая часть', center: 'Центр', right: 'Правая часть' };
+
+let errors: FieldErrors = {};
+let values: FormValues = wine
+  ? {
+      name: wine.name, price: wine.price?.toString() ?? '', style: wine.style, terroirId: String(wine.terroirId),
+      imagePosition: wine.imagePosition, sort: String(wine.sort), published: wine.published ? 'on' : '',
+    }
+  : {
+      name: '', price: '', style: '', terroirId: '', imagePosition: 'center',
+      sort: String((listWines().at(-1)?.sort ?? 0) + 10), published: 'on',
+    };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+
+  if (form.get('_action') === 'delete' && id) {
+    deleteWine(id);
+    return Astro.redirect('/admin/wines?notice=deleted');
+  }
+
+  const result = validate(wineInput, form);
+  ({ values, errors } = result);
+  if (result.data) {
+    try {
+      const imageId = await uploadedImage(form);
+      const savedId = saveWine(id, result.data, imageId);
+      return Astro.redirect(`/admin/wines/${savedId}?notice=${id ? 'saved' : 'created'}`);
+    } catch (error) {
+      errors.image = error instanceof Error ? error.message : 'Не удалось сохранить';
+    }
+  }
+  Astro.response.status = 422;
+}
+
+const title = wine ? wine.name : 'Новое вино';
+---
+
+<AdminLayout title={title}>
+  <div class="page-head">
+    <div>
+      <p class="eyebrow"><a href="/admin/wines">← Все вина</a></p>
+      <h1>{title}</h1>
+    </div>
+  </div>
+
+  {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже. Файл изображения нужно выбрать заново.</p>}
+
+  <form class="form" method="post" enctype="multipart/form-data">
+    <Field label="Название" error={errors.name}>
+      <input name="name" value={values.name} required maxlength="80" />
+    </Field>
+    <Field label="Терруар" error={errors.terroirId}>
+      <select name="terroirId" required>
+        <option value="">— выберите —</option>
+        {terroirs.map((terroir) => (
+          <option value={terroir.id} selected={String(terroir.id) === values.terroirId}>{terroir.name}</option>
+        ))}
+      </select>
+    </Field>
+    <Field label="Стиль" hint="Например: Красное · сухое" error={errors.style}>
+      <input name="style" value={values.style} maxlength="80" />
+    </Field>
+    <Field label="Цена, ₽" hint="Оставьте пустым — на сайте будет «Цена по запросу»" error={errors.price}>
+      <input name="price" value={values.price} inputmode="numeric" />
+    </Field>
+    <Field label="Кадрирование фото" hint="Какая часть снимка видна в карточке" error={errors.imagePosition}>
+      <select name="imagePosition">
+        {Object.entries(positions).map(([value, label]) => (
+          <option value={value} selected={value === values.imagePosition}>{label}</option>
+        ))}
+      </select>
+    </Field>
+    <Field label="Порядок" hint="Чем меньше число, тем выше в списке" error={errors.sort}>
+      <input name="sort" type="number" min="0" max="9999" value={values.sort} required />
+    </Field>
+    <Field label="Фото бутылки" wide error={errors.image} hint="JPG, PNG или WebP до 15 МБ. Автоматически нарезается в WebP 640/1280/1920 px.">
+      {wine?.image && <img class="preview" {...imageAttrs(wine.image)} sizes="40rem" alt="" />}
+      <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/avif" />
+    </Field>
+    <label class="checkbox field--wide">
+      <input type="checkbox" name="published" checked={values.published === 'on'} />
+      Показывать на сайте
+    </label>
+    <div class="form-actions">
+      <button class="button" type="submit">Сохранить</button>
+      <a class="button button--ghost" href="/admin/wines">Отмена</a>
+      {wine && (
+        <button class="button button--danger" type="submit" name="_action" value="delete" formnovalidate onclick="return confirm('Удалить вино безвозвратно?')">Удалить</button>
+      )}
+    </div>
+  </form>
+</AdminLayout>
