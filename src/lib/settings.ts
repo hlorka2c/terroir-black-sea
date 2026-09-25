@@ -1,5 +1,6 @@
 import { z } from 'astro/zod';
 import { db, transaction } from './db';
+import { deleteMediaIfUnused, getMedia, type Media } from './media';
 
 type FieldType = 'text' | 'textarea' | 'email' | 'url';
 
@@ -112,4 +113,19 @@ export function saveSettings(values: Settings): void {
   transaction(() => {
     for (const field of SETTING_FIELDS) upsert.run(field.key, values[field.key as SettingKey]);
   });
+}
+
+// The link preview image is a media reference rather than text, so it lives beside the text fields.
+const OG_IMAGE_KEY = 'ogImageId';
+
+export function getOgImage(): Media | null {
+  const row = db().prepare('SELECT value FROM settings WHERE key = ?').get(OG_IMAGE_KEY) as { value: string } | undefined;
+  return getMedia(row?.value ?? null);
+}
+
+export function setOgImage(imageId: string): void {
+  const previous = getOgImage()?.id ?? null;
+  db().prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value')
+    .run(OG_IMAGE_KEY, imageId);
+  if (previous !== imageId) deleteMediaIfUnused(previous);
 }

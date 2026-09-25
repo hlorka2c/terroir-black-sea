@@ -1,21 +1,33 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import Field from '../../components/admin/Field.astro';
-import { hasErrors, validate, type FieldErrors, type FormValues } from '../../lib/admin-form';
-import { SETTINGS_GROUPS, getSettings, saveSettings, settingsInput, type Settings } from '../../lib/settings';
+import { hasErrors, uploadedImage, validate, type FieldErrors, type FormValues } from '../../lib/admin-form';
+import { imageAttrs } from '../../lib/media';
+import {
+  SETTINGS_GROUPS, getOgImage, getSettings, saveSettings, setOgImage, settingsInput, type Settings,
+} from '../../lib/settings';
 
 let errors: FieldErrors = {};
 let values: FormValues = getSettings();
 
 if (Astro.request.method === 'POST') {
-  const result = validate(settingsInput, await Astro.request.formData());
+  const form = await Astro.request.formData();
+  const result = validate(settingsInput, form);
   ({ values, errors } = result);
   if (result.data) {
-    saveSettings(result.data as Settings);
-    return Astro.redirect('/admin/settings?notice=saved');
+    try {
+      const ogImageId = await uploadedImage(form, 'ogImage');
+      saveSettings(result.data as Settings);
+      if (ogImageId) setOgImage(ogImageId);
+      return Astro.redirect('/admin/settings?notice=saved');
+    } catch (error) {
+      errors.ogImage = error instanceof Error ? error.message : 'Не удалось сохранить';
+    }
   }
   Astro.response.status = 422;
 }
+
+const ogImage = getOgImage();
 ---
 
 <AdminLayout title="Настройки">
@@ -28,7 +40,7 @@ if (Astro.request.method === 'POST') {
 
   {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже.</p>}
 
-  <form method="post" class="settings">
+  <form method="post" class="settings" enctype="multipart/form-data">
     {SETTINGS_GROUPS.map((group) => (
       <fieldset class="form">
         <legend>{group.title}</legend>
@@ -50,6 +62,13 @@ if (Astro.request.method === 'POST') {
         ))}
       </fieldset>
     ))}
+    <fieldset class="form">
+      <legend>Превью ссылки</legend>
+      <Field label="Картинка" wide error={errors.ogImage} hint="Показывается, когда ссылкой на сайт делятся в Telegram, ВКонтакте и мессенджерах. Лучше горизонтальная, от 1200×630 px. Пока не загружена — используется фото виноградника.">
+        {ogImage && <img class="preview" {...imageAttrs(ogImage)} sizes="40rem" alt="" />}
+        <input type="file" name="ogImage" accept="image/jpeg,image/png,image/webp,image/avif" />
+      </Field>
+    </fieldset>
     <div class="settings__actions">
       <button class="button" type="submit">Сохранить</button>
       <a class="button button--ghost" href="/" target="_blank" rel="noopener">Посмотреть на сайте ↗</a>

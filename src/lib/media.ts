@@ -42,14 +42,20 @@ const REFERENCING_TABLES = ['terroirs', 'wines', 'journal'] as const;
 /** Removes an image and its files once no record points to it; shared images stay. */
 export function deleteMediaIfUnused(id: string | null): void {
   if (!id) return;
-  const inUse = REFERENCING_TABLES.some((table) =>
-    db().prepare(`SELECT 1 FROM ${table} WHERE image_id = ? LIMIT 1`).get(id),
-  );
+  const inUse =
+    REFERENCING_TABLES.some((table) => db().prepare(`SELECT 1 FROM ${table} WHERE image_id = ? LIMIT 1`).get(id)) ||
+    db().prepare('SELECT 1 FROM settings WHERE value = ? LIMIT 1').get(id) !== undefined;
   const media = inUse ? null : getMedia(id);
   if (!media) return;
 
   db().prepare('DELETE FROM media WHERE id = ?').run(id);
   for (const width of media.widths) rmSync(path.join(UPLOADS_DIR, fileName(id, width)), { force: true });
+}
+
+/** Largest variant not wider than maxWidth, e.g. for og:image where ~1200px is the recommended size. */
+export function imageUrl(media: Media, maxWidth = Infinity): string {
+  const width = [...media.widths].reverse().find((w) => w <= maxWidth) ?? media.widths[0];
+  return `/media/${fileName(media.id, width)}`;
 }
 
 export function imageAttrs(media: Media) {

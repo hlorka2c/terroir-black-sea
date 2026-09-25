@@ -8,15 +8,18 @@ import ogImage from '../assets/video-vineyard-wide.png';
 interface Props {
   title?: string;
   description?: string;
+  /** Link preview image path; falls back to the bundled vineyard photo. */
+  image?: string;
 }
 
 const {
   title = 'Терруар Чёрного моря — коллекция авторских вин',
   description = 'Коллекция авторских вин, в которой почва, рельеф, свет, ветер и близость моря становятся характером.',
+  image,
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site);
-const socialImage = new URL(ogImage.src, Astro.site);
+const socialImage = new URL(image ?? ogImage.src, Astro.site);
 ---
 
 <!doctype html>
