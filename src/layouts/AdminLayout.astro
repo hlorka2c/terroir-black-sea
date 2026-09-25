@@ -1,0 +1,135 @@
+---
+import '@fontsource-variable/commissioner';
+import '@fontsource/prata';
+
+interface Props {
+  title: string;
+  nav?: boolean;
+}
+
+const { title, nav = true } = Astro.props;
+const path = Astro.url.pathname;
+const links = [
+  { href: '/admin/wines', label: 'Вина' },
+  { href: '/admin/terroirs', label: 'Терруары' },
+  { href: '/admin/journal', label: 'Журнал' },
+];
+const notices: Record<string, string> = {
+  created: 'Запись создана',
+  saved: 'Изменения сохранены',
+  deleted: 'Запись удалена',
+};
+const notice = notices[Astro.url.searchParams.get('notice') ?? ''];
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} · Админка · Терруар Чёрного моря</title>
+  </head>
+  <body class="admin">
+    {nav && (
+      <header class="admin-header">
+        <a class="admin-brand" href="/admin">Терруар <em>Чёрного моря</em></a>
+        <nav aria-label="Разделы">
+          {links.map((link) => (
+            <a href={link.href} aria-current={path.startsWith(link.href) ? 'page' : undefined}>{link.label}</a>
+          ))}
+        </nav>
+        <div class="admin-header__actions">
+          <a href="/" target="_blank" rel="noopener">Открыть сайт ↗</a>
+          <form method="post" action="/admin/logout"><button class="link-button" type="submit">Выйти</button></form>
+        </div>
+      </header>
+    )}
+    <main class="admin-main">
+      {notice && <p class="notice" role="status">{notice}</p>}
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --ink: #101510; --chalk: #f7f3ea; --limestone: #eee9df; --grape: #5b2534; --clay: #b75c3d;
+    --moss: #8d9588; --line: rgba(16, 21, 16, 0.16);
+    --font-display: 'Prata', Georgia, serif; --font-ui: 'Commissioner Variable', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body.admin { margin: 0; min-height: 100vh; background: var(--limestone); color: var(--ink); font: 400 15px/1.5 var(--font-ui); }
+  .admin a { color: inherit; }
+  .admin :focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  .admin h1 { margin: 0; font: 400 clamp(2rem, 3.5vw, 3rem)/1 var(--font-display); letter-spacing: -0.04em; }
+  .admin h1 em, .admin-brand em { color: var(--grape); font-style: normal; }
+  .eyebrow { margin: 0; color: var(--moss); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; }
+
+  .admin-header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 2.5rem; padding: 1rem clamp(1rem, 4vw, 3rem); background: var(--ink); color: var(--chalk); }
+  .admin-brand { font-family: var(--font-display); font-size: 1.15rem; text-decoration: none; }
+  .admin-brand em { color: #d8a58f; }
+  .admin-header nav { display: flex; gap: 1.5rem; }
+  .admin-header nav a, .admin-header__actions a, .link-button { color: rgba(247, 243, 234, 0.7); font-size: 0.72rem; letter-spacing: 0.14em; text-decoration: none; text-transform: uppercase; }
+  .admin-header nav a:hover, .admin-header nav a[aria-current='page'], .admin-header__actions a:hover, .link-button:hover { color: var(--chalk); }
+  .admin-header nav a[aria-current='page'] { box-shadow: 0 2px 0 var(--clay); }
+  .admin-header__actions { display: flex; align-items: center; gap: 1.5rem; margin-left: auto; }
+  .admin-header__actions form { margin: 0; }
+  .link-button { border: 0; padding: 0; background: none; cursor: pointer; font-family: inherit; }
+
+  .admin-main { max-width: 72rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 5rem; }
+  .page-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+
+  .button { display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid var(--ink); padding: 0.75rem 1.25rem; background: var(--ink); color: var(--chalk) !important; cursor: pointer; font: 500 0.72rem/1 var(--font-ui); letter-spacing: 0.14em; text-decoration: none; text-transform: uppercase; }
+  .button:hover { border-color: var(--grape); background: var(--grape); }
+  .button--ghost { background: transparent; color: var(--ink) !important; }
+  .button--ghost:hover { background: var(--ink); color: var(--chalk) !important; }
+  .button--danger { border-color: var(--clay); background: transparent; color: var(--clay) !important; }
+  .button--danger:hover { border-color: var(--clay); background: var(--clay); color: #fff !important; }
+
+  .notice, .form-error { margin: 0 0 1.5rem; padding: 0.85rem 1rem; border-left: 3px solid var(--moss); background: rgba(141, 149, 136, 0.16); }
+  .form-error { border-color: var(--clay); background: rgba(183, 92, 61, 0.1); color: #7d321c; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+  .stat { display: flex; flex-direction: column; gap: 0.5rem; padding: 1.5rem; border: 1px solid var(--line); background: var(--chalk); text-decoration: none; transition: border-color 200ms ease; }
+  .stat:hover { border-color: var(--ink); }
+  .stat strong { font: 400 3rem/1 var(--font-display); }
+  .stat span:last-child { color: rgba(16, 21, 16, 0.6); font-size: 0.85rem; }
+
+  .table { width: 100%; border-collapse: collapse; background: var(--chalk); }
+  .table th, .table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  .table th { color: var(--moss); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; }
+  .table tr:hover td { background: rgba(238, 233, 223, 0.6); }
+  .table td a { font-weight: 500; text-decoration: none; }
+  .table td a:hover { color: var(--grape); text-decoration: underline; }
+  .thumb { display: block; width: 4.5rem; height: 3.25rem; object-fit: cover; background: var(--limestone); }
+  .badge { display: inline-block; padding: 0.2rem 0.5rem; background: rgba(141, 149, 136, 0.2); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  .badge--draft { background: rgba(183, 92, 61, 0.14); color: #7d321c; }
+  .empty { padding: 3rem; background: var(--chalk); color: rgba(16, 21, 16, 0.6); text-align: center; }
+
+  .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem 1.5rem; padding: clamp(1.25rem, 3vw, 2rem); border: 1px solid var(--line); background: var(--chalk); }
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field--wide { grid-column: 1 / -1; }
+  .field > span { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; }
+  .field input, .field select, .field textarea { width: 100%; border: 1px solid rgba(16, 21, 16, 0.28); border-radius: 0; padding: 0.7rem 0.8rem; background: #fff; color: var(--ink); font: inherit; }
+  .field textarea { min-height: 7rem; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ink); outline: none; }
+  .field[data-invalid] input, .field[data-invalid] select, .field[data-invalid] textarea { border-color: var(--clay); }
+  .field small { color: rgba(16, 21, 16, 0.55); font-size: 0.8rem; }
+  .field .field__error { color: #9b3b1f; }
+  .checkbox { display: flex; align-items: center; gap: 0.6rem; }
+  .checkbox input { width: 1.1rem; height: 1.1rem; accent-color: var(--grape); }
+  .form-actions { display: flex; align-items: center; gap: 1rem; grid-column: 1 / -1; padding-top: 1rem; border-top: 1px solid var(--line); }
+  .form-actions .button--danger { margin-left: auto; }
+  .preview { width: 100%; max-height: 16rem; object-fit: cover; }
+
+  .login { display: grid; gap: 1.25rem; width: min(26rem, 100%); margin: 12vh auto 0; padding: 2.5rem; border: 1px solid var(--line); background: var(--chalk); }
+  .login h1 { margin-bottom: 0.5rem; }
+
+  @media (max-width: 760px) {
+    .admin-header { flex-wrap: wrap; gap: 1rem; }
+    .admin-header__actions { margin-left: 0; }
+    .form { grid-template-columns: 1fr; }
+    .table .hide-mobile { display: none; }
+  }
+</style>
