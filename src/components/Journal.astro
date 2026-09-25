@@ -7,6 +7,10 @@ interface Props {
 }
 
 const [feature, ...rest] = Astro.props.items;
+
+// External materials open in a new tab; items without a link stay anchored to the section.
+const linkAttrs = (item: JournalItem) =>
+  item.url ? { href: item.url, target: '_blank', rel: 'noopener' } : { href: '#journal' };
 ---
 
 <section class="journal" id="journal" aria-labelledby="journal-title">
@@ -18,7 +22,7 @@ const [feature, ...rest] = Astro.props.items;
   <div class="journal__content shell">
     {feature && (
       <article class="journal-feature" data-reveal>
-        <a href="#journal" aria-label={JOURNAL_KINDS[feature.kind] + ': ' + feature.title}>
+        <a {...linkAttrs(feature)} aria-label={JOURNAL_KINDS[feature.kind] + ': ' + feature.title}>
           <div class="journal-feature__media">
             <UploadedImage media={feature.image} sizes="(max-width: 820px) 100vw, 60vw" alt={feature.imageAlt} />
             {feature.kind === 'film' && <span class="journal-card__play" aria-hidden="true">▶</span>}
@@ -35,7 +39,7 @@ const [feature, ...rest] = Astro.props.items;
     <div class="journal__grid">
       {rest.map((item) => (
         <article class="journal-card" data-reveal>
-          <a href="#journal" aria-label={JOURNAL_KINDS[item.kind] + ': ' + item.title}>
+          <a {...linkAttrs(item)} aria-label={JOURNAL_KINDS[item.kind] + ': ' + item.title}>
             <div class="journal-card__media">
               <UploadedImage media={item.image} sizes="(max-width: 700px) 100vw, 33vw" alt={item.imageAlt} />
               {item.kind === 'film' && <span class="journal-card__play" aria-hidden="true">▶</span>}

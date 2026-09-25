@@ -14,11 +14,11 @@ if (id === undefined || (id !== null && !item)) return new Response('Not found',
 let errors: FieldErrors = {};
 let values: FormValues = item
   ? {
-      kind: item.kind, title: item.title, description: item.description, duration: item.duration,
+      kind: item.kind, title: item.title, description: item.description, duration: item.duration, url: item.url,
       imageAlt: item.imageAlt, sort: String(item.sort), published: item.published ? 'on' : '',
     }
   : {
-      kind: 'film', title: '', description: '', duration: '', imageAlt: '',
+      kind: 'film', title: '', description: '', duration: '', url: '', imageAlt: '',
       sort: String((listJournal().at(-1)?.sort ?? 0) + 10), published: 'on',
     };
 
@@ -70,6 +70,9 @@ const title = item ? item.title : 'Новый материал';
     </Field>
     <Field label="Длительность" hint="Например: 04:20 или 8 минут" error={errors.duration}>
       <input name="duration" value={values.duration} maxlength="40" />
+    </Field>
+    <Field label="Ссылка" wide hint="Видео, статья или интервью. Пусто — карточка без перехода" error={errors.url}>
+      <input name="url" type="url" value={values.url} maxlength="300" placeholder="https://" />
     </Field>
     <Field label="Описание" wide error={errors.description}>
       <textarea name="description" maxlength="400">{values.description}</textarea>

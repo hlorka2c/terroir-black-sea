@@ -60,14 +60,39 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 `;
 
+/**
+ * Changes on top of SCHEMA for databases that already exist. Append only, never edit:
+ * PRAGMA user_version stores how many of them a database has applied.
+ */
+const MIGRATIONS = [
+  "ALTER TABLE journal ADD COLUMN url TEXT NOT NULL DEFAULT ''",
+];
+
+export function migrate(database: DatabaseSync): void {
+  const { user_version: applied } = database.prepare('PRAGMA user_version').get() as { user_version: number };
+  MIGRATIONS.slice(applied).forEach((sql, index) => {
+    database.exec('BEGIN');
+    try {
+      database.exec(sql);
+      database.exec(`PRAGMA user_version = ${applied + index + 1}`);
+      database.exec('COMMIT');
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
+  });
+}
+
 let instance: DatabaseSync | undefined;
 
 export function db(): DatabaseSync {
   if (!instance) {
     mkdirSync(UPLOADS_DIR, { recursive: true });
-    instance = new DatabaseSync(path.join(DATA_DIR, 'site.db'));
-    instance.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
-    instance.exec(SCHEMA);
+    const database = new DatabaseSync(path.join(DATA_DIR, 'site.db'));
+    database.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+    database.exec(SCHEMA);
+    migrate(database);
+    instance = database;
   }
   return instance;
 }

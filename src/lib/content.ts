@@ -74,6 +74,7 @@ export const journalInput = z.object({
   title: required(120),
   description: text(400),
   duration: text(40),
+  url: text(300).regex(/^(https?:\/\/\S+)?$/, 'Ссылка должна начинаться с https://').default(''),
   imageAlt: text(200),
   sort,
   published,
@@ -102,7 +103,7 @@ const toWine = (r: Row): Wine => ({
 });
 
 const toJournal = (r: Row): JournalItem => ({
-  id: r.id, kind: r.kind, title: r.title, description: r.description, duration: r.duration,
+  id: r.id, kind: r.kind, title: r.title, description: r.description, duration: r.duration, url: r.url,
   image: getMedia(r.image_id), imageAlt: r.image_alt, sort: r.sort, published: r.published === 1,
 });
 
@@ -232,18 +233,18 @@ export function getJournalItem(id: number): JournalItem | null {
 
 export function saveJournalItem(id: number | null, input: JournalInput, imageId: string | null): number {
   const params = {
-    kind: input.kind, title: input.title, description: input.description, duration: input.duration,
+    kind: input.kind, title: input.title, description: input.description, duration: input.duration, url: input.url,
     imageAlt: input.imageAlt, sort: input.sort, published: input.published ? 1 : 0, imageId,
   };
   return writeWithImage('journal', id, imageId, () => {
     if (id === null) {
       return Number(db().prepare(`
-        INSERT INTO journal (kind, title, description, duration, image_alt, sort, published, image_id)
-        VALUES (:kind, :title, :description, :duration, :imageAlt, :sort, :published, :imageId)
+        INSERT INTO journal (kind, title, description, duration, url, image_alt, sort, published, image_id)
+        VALUES (:kind, :title, :description, :duration, :url, :imageAlt, :sort, :published, :imageId)
       `).run(params).lastInsertRowid);
     }
     db().prepare(`
-      UPDATE journal SET kind = :kind, title = :title, description = :description, duration = :duration,
+      UPDATE journal SET kind = :kind, title = :title, description = :description, duration = :duration, url = :url,
         image_alt = :imageAlt, sort = :sort, published = :published,
         image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
       WHERE id = :id
