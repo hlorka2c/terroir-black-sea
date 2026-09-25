@@ -7,11 +7,24 @@ interface Props {
 }
 
 const { terroirs } = Astro.props;
+
+// The heading states the number of plots, so it has to follow the data.
+const NUMBER_WORDS = ['Один', 'Два', 'Три', 'Четыре', 'Пять', 'Шесть', 'Семь', 'Восемь', 'Девять', 'Десять'];
+const FORMS = {
+  one: ['участок', 'характер'],
+  few: ['участка', 'характера'],
+  many: ['участков', 'характеров'],
+} as const;
+
+const count = terroirs.length;
+const plural = new Intl.PluralRules('ru-RU').select(count);
+const [plot, character] = FORMS[plural === 'one' || plural === 'few' ? plural : 'many'];
+const number = NUMBER_WORDS[count - 1] ?? String(count);
 ---
 
 <section class="terroirs" id="terroirs" aria-labelledby="terroirs-title">
   <div class="terroirs__header shell">
-    <h2 class="section-title" id="terroirs-title" data-reveal><span>Два участка</span><em>Два характера</em></h2>
+    <h2 class="section-title" id="terroirs-title" data-reveal><span>{number} {plot}</span><em>{number} {character}</em></h2>
     <p data-reveal>Терруары раскрываются через сопоставимые наблюдения: положение участка, почву, рельеф, сезон и связанные с местом авторские вина.</p>
   </div>
 

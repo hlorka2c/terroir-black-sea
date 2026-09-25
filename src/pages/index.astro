@@ -38,7 +38,7 @@ const websiteSchema = {
     <ScrollVideoStory />
     <FrameConstellation />
     <Factors />
-    <Terroirs terroirs={terroirs} />
+    {terroirs.length > 0 && <Terroirs terroirs={terroirs} />}
     <WineCollection wines={wines} terroirs={terroirs} />
     <TerroirMap terroirs={terroirs} />
     <Journal items={journal} />
