@@ -1,0 +1,177 @@
+---
+import 'leaflet/dist/leaflet.css';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Field from '../../../components/admin/Field.astro';
+import { deleteTerroir, getTerroir, listTerroirs, saveTerroir, terroirInput } from '../../../lib/content';
+import {
+  hasErrors, isUniqueViolation, parseId, uploadedImage, validate, type FieldErrors, type FormValues,
+} from '../../../lib/admin-form';
+import { imageAttrs } from '../../../lib/media';
+
+const id = parseId(Astro.params.id);
+const terroir = id ? getTerroir(id) : null;
+if (id === undefined || (id !== null && !terroir)) return new Response('Not found', { status: 404 });
+
+let errors: FieldErrors = {};
+let values: FormValues = terroir
+  ? {
+      name: terroir.name, slug: terroir.slug, location: terroir.location, description: terroir.description,
+      imageAlt: terroir.imageAlt, polygon: JSON.stringify(terroir.polygon), sort: String(terroir.sort),
+      published: terroir.published ? 'on' : '',
+    }
+  : {
+      name: '', slug: '', location: '', description: '', imageAlt: '', polygon: '[]',
+      sort: String((listTerroirs().at(-1)?.sort ?? 0) + 10), published: 'on',
+    };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+
+  if (form.get('_action') === 'delete' && id) {
+    try {
+      deleteTerroir(id);
+      return Astro.redirect('/admin/terroirs?notice=deleted');
+    } catch (error) {
+      errors.form = error instanceof Error ? error.message : 'Не удалось удалить';
+    }
+  } else {
+    const result = validate(terroirInput, form);
+    ({ values, errors } = result);
+    if (result.data) {
+      try {
+        const imageId = await uploadedImage(form);
+        const savedId = saveTerroir(id, result.data, imageId);
+        return Astro.redirect(`/admin/terroirs/${savedId}?notice=${id ? 'saved' : 'created'}`);
+      } catch (error) {
+        if (isUniqueViolation(error)) errors.slug = 'Такой slug уже используется';
+        else errors.image = error instanceof Error ? error.message : 'Не удалось сохранить';
+      }
+    }
+  }
+  Astro.response.status = 422;
+}
+
+const title = terroir ? terroir.name : 'Новый терруар';
+---
+
+<AdminLayout title={title}>
+  <div class="page-head">
+    <div>
+      <p class="eyebrow"><a href="/admin/terroirs">← Все терруары</a></p>
+      <h1>{title}</h1>
+    </div>
+  </div>
+
+  {errors.form && <p class="form-error" role="alert">{errors.form}</p>}
+  {hasErrors(errors) && !errors.form && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже. Файл изображения нужно выбрать заново.</p>}
+
+  <form class="form" method="post" enctype="multipart/form-data" data-track-changes>
+    <Field label="Название" error={errors.name}>
+      <input name="name" value={values.name} required maxlength="80" />
+    </Field>
+    <Field label="Slug" hint="Латиница, используется в фильтрах и на карте: rocky-shore" error={errors.slug}>
+      <input name="slug" value={values.slug} required maxlength="60" pattern="[a-z0-9\-]+" />
+    </Field>
+    <Field label="Расположение" hint="Например: Варваровка · Анапа" error={errors.location}>
+      <input name="location" value={values.location} maxlength="120" />
+    </Field>
+    <Field label="Порядок" hint="Чем меньше число, тем выше" error={errors.sort}>
+      <input name="sort" type="number" min="0" max="9999" value={values.sort} required />
+    </Field>
+    <Field label="Описание" wide error={errors.description}>
+      <textarea name="description" maxlength="600">{values.description}</textarea>
+    </Field>
+    <Field label="Фотография" wide error={errors.image} hint="JPG, PNG или WebP до 15 МБ">
+      {terroir?.image && <img class="preview" {...imageAttrs(terroir.image)} sizes="40rem" alt="" />}
+      <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/avif" />
+    </Field>
+    <Field label="Описание фото (alt)" wide hint="Что изображено — для незрячих пользователей и поисковиков" error={errors.imageAlt}>
+      <input name="imageAlt" value={values.imageAlt} maxlength="200" />
+    </Field>
+    <Field as="div" label="Контур на карте" wide error={errors.polygon} hint="Кликайте по карте, чтобы добавить вершины. Можно вставить JSON вручную: [[44.52, 38.10], ...]">
+      <div class="polygon-editor" data-polygon-editor>
+        <div class="polygon-editor__map" data-map></div>
+        <div class="polygon-editor__tools">
+          <button class="button button--ghost" type="button" data-undo>Убрать последнюю точку</button>
+          <button class="button button--ghost" type="button" data-clear>Очистить</button>
+        </div>
+        <textarea name="polygon" rows="3" aria-label="Координаты контура в JSON" data-polygon-input>{values.polygon}</textarea>
+      </div>
+    </Field>
+    <label class="checkbox field--wide">
+      <input type="checkbox" name="published" checked={values.published === 'on'} />
+      Показывать на сайте
+    </label>
+    <div class="form-actions">
+      <button class="button" type="submit">Сохранить</button>
+      <a class="button button--ghost" href="/admin/terroirs">Отмена</a>
+      {terroir && (
+        <button class="button button--danger" type="submit" name="_action" value="delete" formnovalidate onclick="return confirm('Удалить терруар?')">Удалить</button>
+      )}
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  import L from 'leaflet';
+
+  type Point = [number, number];
+  const isPoint = (value: unknown): value is Point =>
+    Array.isArray(value) && value.length === 2 && value.every((n) => typeof n === 'number' && Number.isFinite(n));
+
+  const root = document.querySelector<HTMLElement>('[data-polygon-editor]');
+  const input = root?.querySelector<HTMLTextAreaElement>('[data-polygon-input]');
+  const mapElement = root?.querySelector<HTMLElement>('[data-map]');
+
+  if (root && input && mapElement) {
+    const map = L.map(mapElement).setView([44.69, 37.72], 8);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+    const shape = L.polygon([], { color: '#b75c3d', weight: 2, fillOpacity: 0.2 }).addTo(map);
+    const vertices = L.layerGroup().addTo(map);
+    let points: Point[] = [];
+
+    const read = () => {
+      try {
+        const parsed: unknown = JSON.parse(input.value || '[]');
+        if (Array.isArray(parsed) && parsed.every(isPoint)) points = parsed;
+      } catch {
+        // Keep the last valid shape while the JSON is being typed.
+      }
+    };
+
+    const render = (fit = false) => {
+      shape.setLatLngs(points);
+      vertices.clearLayers();
+      points.forEach((point) => L.circleMarker(point, {
+        radius: 4, color: '#101510', weight: 1, fillColor: '#f7f3ea', fillOpacity: 1, interactive: false,
+      }).addTo(vertices));
+      if (fit && points.length) map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 13 });
+    };
+
+    const commit = () => {
+      input.value = JSON.stringify(points);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    map.on('click', (event) => {
+      points.push([Number(event.latlng.lat.toFixed(5)), Number(event.latlng.lng.toFixed(5))]);
+      commit();
+    });
+    root.querySelector('[data-undo]')?.addEventListener('click', () => { points.pop(); commit(); });
+    root.querySelector('[data-clear]')?.addEventListener('click', () => { points = []; commit(); });
+    input.addEventListener('input', () => { read(); render(); });
+
+    read();
+    render(true);
+  }
+</script>
+
+<style>
+  .polygon-editor { display: grid; gap: 0.75rem; }
+  .polygon-editor__map { height: 24rem; border: 1px solid rgba(16, 21, 16, 0.28); cursor: crosshair; isolation: isolate; }
+  .polygon-editor__tools { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .polygon-editor textarea { min-height: 0; font: 0.8rem/1.4 ui-monospace, monospace; }
+</style>

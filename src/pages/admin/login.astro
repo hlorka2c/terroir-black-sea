@@ -1,0 +1,48 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import {
+  checkCredentials, clearFailures, createSession, isAuthenticated, isRateLimited, registerFailure,
+} from '../../lib/auth';
+
+if (isAuthenticated(Astro.cookies)) return Astro.redirect('/admin');
+
+let error = '';
+if (Astro.request.method === 'POST') {
+  const key = Astro.clientAddress;
+  if (isRateLimited(key)) {
+    error = 'Слишком много попыток входа. Попробуйте через 15 минут.';
+    Astro.response.status = 429;
+  } else {
+    const form = await Astro.request.formData();
+    const login = String(form.get('login') ?? '');
+    const password = String(form.get('password') ?? '');
+    if (checkCredentials(login, password)) {
+      clearFailures(key);
+      createSession(Astro.cookies, Astro.url);
+      return Astro.redirect('/admin');
+    }
+    registerFailure(key);
+    error = 'Неверный логин или пароль';
+    Astro.response.status = 401;
+  }
+}
+---
+
+<AdminLayout title="Вход" nav={false}>
+  <form class="login" method="post">
+    <div>
+      <p class="eyebrow">Панель управления</p>
+      <h1>Терруар <em>Чёрного моря</em></h1>
+    </div>
+    {error && <p class="form-error" role="alert">{error}</p>}
+    <label class="field">
+      <span>Логин</span>
+      <input name="login" autocomplete="username" required autofocus />
+    </label>
+    <label class="field">
+      <span>Пароль</span>
+      <input name="password" type="password" autocomplete="current-password" required />
+    </label>
+    <button class="button" type="submit">Войти</button>
+  </form>
+</AdminLayout>

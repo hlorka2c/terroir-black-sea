@@ -12,6 +12,16 @@ import Journal from '../components/Journal.astro';
 import WhereBuy from '../components/WhereBuy.astro';
 import Footer from '../components/Footer.astro';
 
+import { listJournal, listTerroirs, listWines } from '../lib/content';
+import { imageUrl } from '../lib/media';
+import { getOgImage, getSettings } from '../lib/settings';
+
+const terroirs = listTerroirs({ publishedOnly: true });
+const wines = listWines({ publishedOnly: true });
+const journal = listJournal({ publishedOnly: true });
+const settings = getSettings();
+const ogImage = getOgImage();
+
 const websiteSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -22,23 +32,23 @@ const websiteSchema = {
 };
 ---
 
-<BaseLayout>
+<BaseLayout title={settings.seoTitle} description={settings.seoDescription} image={ogImage ? imageUrl(ogImage, 1280) : undefined}>
   <a class="skip-link" href="#main-content">Перейти к содержанию</a>
   <AgeGate />
   <Header />
 
   <main id="main-content">
-    <ScrollVideoStory />
+    <ScrollVideoStory settings={settings} />
     <FrameConstellation />
     <Factors />
-    <Terroirs />
-    <WineCollection />
-    <TerroirMap />
-    <Journal />
-    <WhereBuy />
+    {terroirs.length > 0 && <Terroirs terroirs={terroirs} />}
+    <WineCollection wines={wines} terroirs={terroirs} />
+    <TerroirMap terroirs={terroirs} />
+    <Journal items={journal} />
+    <WhereBuy settings={settings} />
   </main>
 
-  <Footer />
+  <Footer settings={settings} />
 
   <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteSchema)} />
 

@@ -1,16 +1,16 @@
 ---
-import { Image } from 'astro:assets';
-import vineyard from '../assets/video-vineyard-wide.png';
-import sunset from '../assets/video-sunset.png';
-import vines from '../assets/video-vines.png';
-import soil from '../assets/soil-grape-placeholder.png';
+import UploadedImage from './UploadedImage.astro';
+import { JOURNAL_KINDS, type JournalItem } from '../lib/content';
 
-const materials = [
-  { type: 'Фильм', title: 'Земля формирует', description: 'Короткий фильм о том, как читают участок прежде, чем говорить о вкусе.', image: vineyard, alt: 'Виноградник у подножия гор', length: '04:20' },
-  { type: 'Фильм', title: 'Лоза запоминает', description: 'Сезон в винограднике глазами людей, которые каждый день работают с лозой.', image: sunset, alt: 'Закат над рельефом виноградника', length: '06:40' },
-  { type: 'Исследование', title: 'Море — один из факторов', description: 'Связи между побережьем, рельефом, движением воздуха и виноградником.', image: vines, alt: 'Ряды виноградных лоз', length: '8 минут' },
-  { type: 'Интервью', title: 'Как читать участок', description: 'Разговор о данных, наблюдениях и границе между фактом и интерпретацией.', image: soil, alt: 'Камень почвы и виноградная ягода', length: '12 минут' },
-];
+interface Props {
+  items: JournalItem[];
+}
+
+const [feature, ...rest] = Astro.props.items;
+
+// External materials open in a new tab; items without a link stay anchored to the section.
+const linkAttrs = (item: JournalItem) =>
+  item.url ? { href: item.url, target: '_blank', rel: 'noopener' } : { href: '#journal' };
 ---
 
 <section class="journal" id="journal" aria-labelledby="journal-title">
@@ -20,31 +20,33 @@ const materials = [
   </div>
 
   <div class="journal__content shell">
-    <article class="journal-feature" data-reveal>
-      <a href="#journal" aria-label={'Фильм: ' + materials[0].title}>
-        <div class="journal-feature__media">
-          <Image src={materials[0].image} widths={[720, 1080, 1440]} sizes="(max-width: 820px) 100vw, 60vw" format="webp" quality={84} alt={materials[0].alt} loading="lazy" />
-          <span class="journal-card__play" aria-hidden="true">▶</span>
-        </div>
-        <div class="journal-feature__copy">
-          <div class="journal-card__meta"><span>{materials[0].type}</span><span>{materials[0].length}</span></div>
-          <h3>{materials[0].title}</h3>
-          <p>{materials[0].description}</p>
-        </div>
-      </a>
-    </article>
+    {feature && (
+      <article class="journal-feature" data-reveal>
+        <a {...linkAttrs(feature)} aria-label={JOURNAL_KINDS[feature.kind] + ': ' + feature.title}>
+          <div class="journal-feature__media">
+            <UploadedImage media={feature.image} sizes="(max-width: 820px) 100vw, 60vw" alt={feature.imageAlt} />
+            {feature.kind === 'film' && <span class="journal-card__play" aria-hidden="true">▶</span>}
+          </div>
+          <div class="journal-feature__copy">
+            <div class="journal-card__meta"><span>{JOURNAL_KINDS[feature.kind]}</span><span>{feature.duration}</span></div>
+            <h3>{feature.title}</h3>
+            <p>{feature.description}</p>
+          </div>
+        </a>
+      </article>
+    )}
 
     <div class="journal__grid">
-      {materials.slice(1).map((material, index) => (
+      {rest.map((item) => (
         <article class="journal-card" data-reveal>
-          <a href="#journal" aria-label={material.type + ': ' + material.title}>
+          <a {...linkAttrs(item)} aria-label={JOURNAL_KINDS[item.kind] + ': ' + item.title}>
             <div class="journal-card__media">
-              <Image src={material.image} widths={[480, 720, 960]} sizes="(max-width: 700px) 100vw, 33vw" format="webp" quality={82} alt={material.alt} loading="lazy" />
-              {index === 0 && <span class="journal-card__play" aria-hidden="true">▶</span>}
+              <UploadedImage media={item.image} sizes="(max-width: 700px) 100vw, 33vw" alt={item.imageAlt} />
+              {item.kind === 'film' && <span class="journal-card__play" aria-hidden="true">▶</span>}
             </div>
-            <div class="journal-card__meta"><span>{material.type}</span><span>{material.length}</span></div>
-            <h3>{material.title}</h3>
-            <p>{material.description}</p>
+            <div class="journal-card__meta"><span>{JOURNAL_KINDS[item.kind]}</span><span>{item.duration}</span></div>
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
           </a>
         </article>
       ))}

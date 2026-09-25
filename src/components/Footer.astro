@@ -1,3 +1,17 @@
+---
+import type { Settings } from '../lib/settings';
+
+interface Props {
+  settings: Settings;
+}
+
+const { settings } = Astro.props;
+const socials = [
+  { name: 'Telegram', url: settings.telegramUrl },
+  { name: 'ВКонтакте', url: settings.vkUrl },
+];
+---
+
 <footer class="footer">
   <div class="footer__top shell">
     <a class="footer__brand" href="#top">
@@ -16,9 +30,19 @@
   </div>
 
   <div class="footer__contacts shell" id="contacts">
-    <div><span>Общие вопросы</span><a href="mailto:hello@terroir-black-sea.ru">hello@terroir-black-sea.ru</a></div>
-    <div><span>Ресторанам и винотекам</span><a href="mailto:partners@terroir-black-sea.ru">partners@terroir-black-sea.ru</a></div>
-    <div><span>Социальные сети</span><p>Telegram · ВКонтакте</p></div>
+    <div><span>Общие вопросы</span><a href={'mailto:' + settings.contactEmail}>{settings.contactEmail}</a></div>
+    <div><span>Ресторанам и винотекам</span><a href={'mailto:' + settings.partnersEmail}>{settings.partnersEmail}</a></div>
+    <div>
+      <span>Социальные сети</span>
+      <p>
+        {socials.map((social, index) => (
+          <>
+            {index > 0 && ' · '}
+            {social.url ? <a href={social.url} target="_blank" rel="noopener">{social.name}</a> : social.name}
+          </>
+        ))}
+      </p>
+    </div>
     <strong>18+</strong>
   </div>
 

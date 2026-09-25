@@ -1,26 +1,39 @@
 ---
-import { Image } from 'astro:assets';
-import mezybImage from '../assets/terroir-mezyb-placeholder.png';
-import rockyImage from '../assets/terroir-rocky-placeholder.png';
+import UploadedImage from './UploadedImage.astro';
+import type { Terroir } from '../lib/content';
 
-const terroirs = [
-  { index: '01', name: 'Мезыбь', image: mezybImage, alt: 'Виноградник на известняковом склоне в Мезыби', description: 'Участок у подножия Маркотхского хребта. Здесь почва, высота и открытость склона создают собственный ритм созревания.' },
-  { index: '02', name: 'Скалистый берег', image: rockyImage, alt: 'Виноградные лозы на скалистом побережье', description: 'Виноградник в районе Варваровки. Рельеф и воздушные потоки формируют другое прочтение близости Чёрного моря.' },
-];
+interface Props {
+  terroirs: Terroir[];
+}
+
+const { terroirs } = Astro.props;
+
+// The heading states the number of plots, so it has to follow the data.
+const NUMBER_WORDS = ['Один', 'Два', 'Три', 'Четыре', 'Пять', 'Шесть', 'Семь', 'Восемь', 'Девять', 'Десять'];
+const FORMS = {
+  one: ['участок', 'характер'],
+  few: ['участка', 'характера'],
+  many: ['участков', 'характеров'],
+} as const;
+
+const count = terroirs.length;
+const plural = new Intl.PluralRules('ru-RU').select(count);
+const [plot, character] = FORMS[plural === 'one' || plural === 'few' ? plural : 'many'];
+const number = NUMBER_WORDS[count - 1] ?? String(count);
 ---
 
 <section class="terroirs" id="terroirs" aria-labelledby="terroirs-title">
   <div class="terroirs__header shell">
-    <h2 class="section-title" id="terroirs-title" data-reveal><span>Два участка</span><em>Два характера</em></h2>
+    <h2 class="section-title" id="terroirs-title" data-reveal><span>{number} {plot}</span><em>{number} {character}</em></h2>
     <p data-reveal>Терруары раскрываются через сопоставимые наблюдения: положение участка, почву, рельеф, сезон и связанные с местом авторские вина.</p>
   </div>
 
   <div class="terroirs__cards shell">
-    {terroirs.map((terroir) => (
+    {terroirs.map((terroir, index) => (
       <a class="terroir-card" href="#map" data-reveal aria-label={'Показать терруар «' + terroir.name + '» на карте'}>
         <div class="terroir-card__media">
-          <Image src={terroir.image} widths={[640, 960, 1280]} sizes="(max-width: 760px) 100vw, 50vw" format="webp" quality={84} alt={terroir.alt} loading="lazy" />
-          <span class="terroir-card__index">{terroir.index}</span>
+          <UploadedImage media={terroir.image} sizes="(max-width: 760px) 100vw, 50vw" alt={terroir.imageAlt} />
+          <span class="terroir-card__index">{String(index + 1).padStart(2, '0')}</span>
         </div>
         <div class="terroir-card__body">
           <div>

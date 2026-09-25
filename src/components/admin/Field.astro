@@ -1,0 +1,18 @@
+---
+interface Props {
+  label: string;
+  error?: string;
+  hint?: string;
+  wide?: boolean;
+  as?: 'label' | 'div';
+}
+
+const { label, error, hint, wide = false, as: Tag = 'label' } = Astro.props;
+---
+
+<Tag class:list={['field', { 'field--wide': wide }]} data-invalid={error ? '' : undefined}>
+  <span>{label}</span>
+  <slot />
+  {hint && <small>{hint}</small>}
+  {error && <small class="field__error" role="alert">{error}</small>}
+</Tag>

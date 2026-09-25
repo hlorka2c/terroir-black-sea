@@ -1,0 +1,40 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { listTerroirs, listWines } from '../../../lib/content';
+import { imageAttrs } from '../../../lib/media';
+
+const terroirs = listTerroirs();
+const wines = listWines();
+---
+
+<AdminLayout title="Терруары">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Места происхождения</p>
+      <h1>Терруары</h1>
+    </div>
+    <a class="button" href="/admin/terroirs/new">+ Добавить терруар</a>
+  </div>
+
+  {terroirs.length === 0 ? (
+    <p class="empty">Терруаров пока нет.</p>
+  ) : (
+    <table class="table">
+      <thead>
+        <tr><th></th><th>Название</th><th class="hide-mobile">Расположение</th><th>Вин</th><th class="hide-mobile">Контур</th><th>Статус</th></tr>
+      </thead>
+      <tbody>
+        {terroirs.map((terroir) => (
+          <tr>
+            <td>{terroir.image && <img class="thumb" {...imageAttrs(terroir.image)} sizes="72px" alt="" />}</td>
+            <td><a href={`/admin/terroirs/${terroir.id}`}>{terroir.name}</a></td>
+            <td class="hide-mobile">{terroir.location}</td>
+            <td>{wines.filter((wine) => wine.terroirId === terroir.id).length}</td>
+            <td class="hide-mobile">{terroir.polygon.length ? `${terroir.polygon.length} точек` : 'не задан'}</td>
+            <td>{terroir.published ? <span class="badge">На сайте</span> : <span class="badge badge--draft">Скрыто</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</AdminLayout>

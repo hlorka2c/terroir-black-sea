@@ -1,13 +1,14 @@
 ---
-import { Image } from 'astro:assets';
-import bottles from '../assets/wine-bottles-placeholder.png';
+import UploadedImage from './UploadedImage.astro';
+import { formatPrice, type Terroir, type Wine } from '../lib/content';
 
-const wines = [
-  { name: 'Северный склон', price: '3 200 ₽', terroir: 'Мезыбь', filter: 'mezyb', style: 'Красное · сухое', position: 'left' },
-  { name: 'Белый камень', price: '2 800 ₽', terroir: 'Мезыбь', filter: 'mezyb', style: 'Белое · сухое', position: 'center' },
-  { name: 'Береговой ветер', price: '3 900 ₽', terroir: 'Скалистый берег', filter: 'rocky', style: 'Красное · сухое', position: 'right' },
-  { name: 'Известняк', price: '4 600 ₽', terroir: 'Скалистый берег', filter: 'rocky', style: 'Белое · сухое', position: 'center' },
-];
+interface Props {
+  wines: Wine[];
+  terroirs: Terroir[];
+}
+
+const { wines, terroirs } = Astro.props;
+const filters = terroirs.filter((terroir) => wines.some((wine) => wine.terroirId === terroir.id));
 ---
 
 <section class="wines" id="wines" aria-labelledby="wines-title" data-wine-collection>
@@ -18,22 +19,23 @@ const wines = [
     </div>
     <div class="wines__filters" role="group" aria-label="Фильтр вин по терруару" data-reveal>
       <button class="is-active" type="button" data-wine-filter="all" aria-pressed="true">Все вина</button>
-      <button type="button" data-wine-filter="mezyb" aria-pressed="false">Мезыбь</button>
-      <button type="button" data-wine-filter="rocky" aria-pressed="false">Скалистый берег</button>
+      {filters.map((terroir) => (
+        <button type="button" data-wine-filter={terroir.slug} aria-pressed="false">{terroir.name}</button>
+      ))}
     </div>
   </div>
 
   <div class="wines__grid shell" aria-live="polite">
     {wines.map((wine) => (
-      <article class="wine-product" data-wine-product data-terroir={wine.filter} data-reveal>
-        <a href="#buy" aria-label={wine.name + ', терруар ' + wine.terroir}>
-          <div class:list={['wine-product__media', 'wine-product__media--' + wine.position]}>
-            <Image src={bottles} widths={[520, 760, 1040]} sizes="(max-width: 620px) 88vw, (max-width: 980px) 44vw, 25vw" format="webp" quality={86} alt={'Бутылка авторского вина «' + wine.name + '»'} loading="lazy" />
+      <article class="wine-product" data-wine-product data-terroir={wine.terroirSlug} data-reveal>
+        <a href="#buy" aria-label={wine.name + ', терруар ' + wine.terroirName}>
+          <div class:list={['wine-product__media', 'wine-product__media--' + wine.imagePosition]}>
+            <UploadedImage media={wine.image} sizes="(max-width: 620px) 88vw, (max-width: 980px) 44vw, 25vw" alt={'Бутылка авторского вина «' + wine.name + '»'} />
           </div>
           <div class="wine-product__body">
-            <div class="wine-product__origin"><span>{wine.terroir}</span><span>{wine.style}</span></div>
+            <div class="wine-product__origin"><span>{wine.terroirName}</span><span>{wine.style}</span></div>
             <h3>{wine.name}</h3>
-            <p class="wine-product__price">{wine.price}</p>
+            <p class="wine-product__price">{formatPrice(wine.price)}</p>
           </div>
         </a>
       </article>

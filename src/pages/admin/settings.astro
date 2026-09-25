@@ -1,0 +1,85 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Field from '../../components/admin/Field.astro';
+import { hasErrors, uploadedImage, validate, type FieldErrors, type FormValues } from '../../lib/admin-form';
+import { imageAttrs } from '../../lib/media';
+import {
+  SETTINGS_GROUPS, getOgImage, getSettings, saveSettings, setOgImage, settingsInput, type Settings,
+} from '../../lib/settings';
+
+let errors: FieldErrors = {};
+let values: FormValues = getSettings();
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const result = validate(settingsInput, form);
+  ({ values, errors } = result);
+  if (result.data) {
+    try {
+      const ogImageId = await uploadedImage(form, 'ogImage');
+      saveSettings(result.data as Settings);
+      if (ogImageId) setOgImage(ogImageId);
+      return Astro.redirect('/admin/settings?notice=saved');
+    } catch (error) {
+      errors.ogImage = error instanceof Error ? error.message : 'Не удалось сохранить';
+    }
+  }
+  Astro.response.status = 422;
+}
+
+const ogImage = getOgImage();
+---
+
+<AdminLayout title="Настройки">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Тексты и контакты</p>
+      <h1>Настройки</h1>
+    </div>
+  </div>
+
+  {hasErrors(errors) && <p class="form-error" role="alert">Проверьте поля, отмеченные ниже.</p>}
+
+  <form method="post" class="settings" enctype="multipart/form-data" data-track-changes>
+    {SETTINGS_GROUPS.map((group) => (
+      <fieldset class="form">
+        <legend>{group.title}</legend>
+        {group.fields.map((field) => (
+          <Field label={field.label} hint={'hint' in field ? field.hint : undefined} error={errors[field.key]} wide={field.type === 'textarea'}>
+            {field.type === 'textarea' ? (
+              <textarea name={field.key} maxlength={field.max} rows="3" required={!('optional' in field)}>{values[field.key]}</textarea>
+            ) : (
+              <input
+                name={field.key}
+                type={field.type}
+                value={values[field.key]}
+                maxlength={field.max}
+                required={!('optional' in field)}
+                placeholder={field.type === 'url' ? 'https://' : undefined}
+              />
+            )}
+          </Field>
+        ))}
+      </fieldset>
+    ))}
+    <fieldset class="form">
+      <legend>Превью ссылки</legend>
+      <Field label="Картинка" wide error={errors.ogImage} hint="Показывается, когда ссылкой на сайт делятся в Telegram, ВКонтакте и мессенджерах. Лучше горизонтальная, от 1200×630 px. Пока не загружена — используется фото виноградника.">
+        {ogImage && <img class="preview" {...imageAttrs(ogImage)} sizes="40rem" alt="" />}
+        <input type="file" name="ogImage" accept="image/jpeg,image/png,image/webp,image/avif" />
+      </Field>
+    </fieldset>
+    <div class="settings__actions">
+      <button class="button" type="submit">Сохранить</button>
+      <a class="button button--ghost" href="/" target="_blank" rel="noopener">Посмотреть на сайте ↗</a>
+    </div>
+  </form>
+</AdminLayout>
+
+<style>
+  .settings { display: grid; gap: 1.5rem; }
+  .settings fieldset { margin: 0; min-width: 0; }
+  /* float turns the legend into a regular grid item, so it can span the full row above the fields */
+  .settings legend { float: left; grid-column: 1 / -1; width: 100%; margin-bottom: 0.5rem; font: 400 1.6rem/1.1 var(--font-display); letter-spacing: -0.03em; }
+  .settings__actions { position: sticky; bottom: 0; display: flex; gap: 1rem; padding: 1rem 0; background: var(--limestone); border-top: 1px solid var(--line); }
+</style>

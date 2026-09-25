@@ -1,0 +1,28 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { listJournal, listTerroirs, listWines } from '../../lib/content';
+
+const sections = [
+  { href: '/admin/wines', label: 'Вина', items: listWines() },
+  { href: '/admin/terroirs', label: 'Терруары', items: listTerroirs() },
+  { href: '/admin/journal', label: 'Журнал', items: listJournal() },
+];
+---
+
+<AdminLayout title="Обзор">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Панель управления</p>
+      <h1>Обзор</h1>
+    </div>
+  </div>
+  <div class="stats">
+    {sections.map((section) => (
+      <a class="stat" href={section.href}>
+        <span class="eyebrow">{section.label}</span>
+        <strong>{section.items.length}</strong>
+        <span>Скрыто: {section.items.filter((item) => !item.published).length}</span>
+      </a>
+    ))}
+  </div>
+</AdminLayout>
