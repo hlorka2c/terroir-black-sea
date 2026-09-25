@@ -60,6 +60,7 @@ if (Astro.request.method === 'POST') {
 <style>
   .settings { display: grid; gap: 1.5rem; }
   .settings fieldset { margin: 0; min-width: 0; }
-  .settings legend { float: left; width: 100%; margin-bottom: 0.5rem; font: 400 1.6rem/1.1 var(--font-display); letter-spacing: -0.03em; }
+  /* float turns the legend into a regular grid item, so it can span the full row above the fields */
+  .settings legend { float: left; grid-column: 1 / -1; width: 100%; margin-bottom: 0.5rem; font: 400 1.6rem/1.1 var(--font-display); letter-spacing: -0.03em; }
   .settings__actions { position: sticky; bottom: 0; display: flex; gap: 1rem; padding: 1rem 0; background: var(--limestone); border-top: 1px solid var(--line); }
 </style>
