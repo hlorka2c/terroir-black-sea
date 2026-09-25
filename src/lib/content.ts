@@ -1,6 +1,6 @@
 import { z } from 'astro/zod';
 import { db } from './db';
-import { getMedia, type Media } from './media';
+import { deleteMediaIfUnused, getMedia, type Media } from './media';
 
 type Row = Record<string, any>;
 
@@ -106,6 +106,34 @@ const toJournal = (r: Row): JournalItem => ({
   image: getMedia(r.image_id), imageAlt: r.image_alt, sort: r.sort, published: r.published === 1,
 });
 
+// Images
+
+type ImageTable = 'terroirs' | 'wines' | 'journal';
+
+const imageOf = (table: ImageTable, id: number) =>
+  (db().prepare(`SELECT image_id FROM ${table} WHERE id = ?`).get(id) as { image_id: string | null } | undefined)
+    ?.image_id ?? null;
+
+/** Runs a write that may attach a new image: frees the replaced image, or the new one if the write fails. */
+function writeWithImage(table: ImageTable, id: number | null, imageId: string | null, write: () => number): number {
+  const previous = id !== null && imageId ? imageOf(table, id) : null;
+  let savedId: number;
+  try {
+    savedId = write();
+  } catch (error) {
+    deleteMediaIfUnused(imageId);
+    throw error;
+  }
+  if (previous !== imageId) deleteMediaIfUnused(previous);
+  return savedId;
+}
+
+function deleteWithImage(table: ImageTable, id: number): void {
+  const image = imageOf(table, id);
+  db().prepare(`DELETE FROM ${table} WHERE id = ?`).run(id);
+  deleteMediaIfUnused(image);
+}
+
 // Terroirs
 
 export function listTerroirs({ publishedOnly = false } = {}): Terroir[] {
@@ -124,25 +152,27 @@ export function saveTerroir(id: number | null, input: TerroirInput, imageId: str
     imageAlt: input.imageAlt, polygon: JSON.stringify(input.polygon), sort: input.sort,
     published: input.published ? 1 : 0, imageId,
   };
-  if (id === null) {
-    return Number(db().prepare(`
-      INSERT INTO terroirs (name, slug, location, description, image_alt, polygon, sort, published, image_id)
-      VALUES (:name, :slug, :location, :description, :imageAlt, :polygon, :sort, :published, :imageId)
-    `).run(params).lastInsertRowid);
-  }
-  db().prepare(`
-    UPDATE terroirs SET name = :name, slug = :slug, location = :location, description = :description,
-      image_alt = :imageAlt, polygon = :polygon, sort = :sort, published = :published,
-      image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
-    WHERE id = :id
-  `).run({ ...params, id });
-  return id;
+  return writeWithImage('terroirs', id, imageId, () => {
+    if (id === null) {
+      return Number(db().prepare(`
+        INSERT INTO terroirs (name, slug, location, description, image_alt, polygon, sort, published, image_id)
+        VALUES (:name, :slug, :location, :description, :imageAlt, :polygon, :sort, :published, :imageId)
+      `).run(params).lastInsertRowid);
+    }
+    db().prepare(`
+      UPDATE terroirs SET name = :name, slug = :slug, location = :location, description = :description,
+        image_alt = :imageAlt, polygon = :polygon, sort = :sort, published = :published,
+        image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
+      WHERE id = :id
+    `).run({ ...params, id });
+    return id;
+  });
 }
 
 export function deleteTerroir(id: number): void {
   const { count } = db().prepare('SELECT COUNT(*) AS count FROM wines WHERE terroir_id = ?').get(id) as { count: number };
   if (count > 0) throw new Error(`К терруару привязано вин: ${count}. Сначала перенесите или удалите их.`);
-  db().prepare('DELETE FROM terroirs WHERE id = ?').run(id);
+  deleteWithImage('terroirs', id);
 }
 
 // Wines
@@ -167,23 +197,25 @@ export function saveWine(id: number | null, input: WineInput, imageId: string | 
     name: input.name, price: input.price, style: input.style, terroirId: input.terroirId,
     imagePosition: input.imagePosition, sort: input.sort, published: input.published ? 1 : 0, imageId,
   };
-  if (id === null) {
-    return Number(db().prepare(`
-      INSERT INTO wines (name, price, style, terroir_id, image_position, sort, published, image_id)
-      VALUES (:name, :price, :style, :terroirId, :imagePosition, :sort, :published, :imageId)
-    `).run(params).lastInsertRowid);
-  }
-  db().prepare(`
-    UPDATE wines SET name = :name, price = :price, style = :style, terroir_id = :terroirId,
-      image_position = :imagePosition, sort = :sort, published = :published,
-      image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
-    WHERE id = :id
-  `).run({ ...params, id });
-  return id;
+  return writeWithImage('wines', id, imageId, () => {
+    if (id === null) {
+      return Number(db().prepare(`
+        INSERT INTO wines (name, price, style, terroir_id, image_position, sort, published, image_id)
+        VALUES (:name, :price, :style, :terroirId, :imagePosition, :sort, :published, :imageId)
+      `).run(params).lastInsertRowid);
+    }
+    db().prepare(`
+      UPDATE wines SET name = :name, price = :price, style = :style, terroir_id = :terroirId,
+        image_position = :imagePosition, sort = :sort, published = :published,
+        image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
+      WHERE id = :id
+    `).run({ ...params, id });
+    return id;
+  });
 }
 
 export function deleteWine(id: number): void {
-  db().prepare('DELETE FROM wines WHERE id = ?').run(id);
+  deleteWithImage('wines', id);
 }
 
 // Journal
@@ -203,23 +235,25 @@ export function saveJournalItem(id: number | null, input: JournalInput, imageId:
     kind: input.kind, title: input.title, description: input.description, duration: input.duration,
     imageAlt: input.imageAlt, sort: input.sort, published: input.published ? 1 : 0, imageId,
   };
-  if (id === null) {
-    return Number(db().prepare(`
-      INSERT INTO journal (kind, title, description, duration, image_alt, sort, published, image_id)
-      VALUES (:kind, :title, :description, :duration, :imageAlt, :sort, :published, :imageId)
-    `).run(params).lastInsertRowid);
-  }
-  db().prepare(`
-    UPDATE journal SET kind = :kind, title = :title, description = :description, duration = :duration,
-      image_alt = :imageAlt, sort = :sort, published = :published,
-      image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
-    WHERE id = :id
-  `).run({ ...params, id });
-  return id;
+  return writeWithImage('journal', id, imageId, () => {
+    if (id === null) {
+      return Number(db().prepare(`
+        INSERT INTO journal (kind, title, description, duration, image_alt, sort, published, image_id)
+        VALUES (:kind, :title, :description, :duration, :imageAlt, :sort, :published, :imageId)
+      `).run(params).lastInsertRowid);
+    }
+    db().prepare(`
+      UPDATE journal SET kind = :kind, title = :title, description = :description, duration = :duration,
+        image_alt = :imageAlt, sort = :sort, published = :published,
+        image_id = COALESCE(:imageId, image_id), updated_at = datetime('now')
+      WHERE id = :id
+    `).run({ ...params, id });
+    return id;
+  });
 }
 
 export function deleteJournalItem(id: number): void {
-  db().prepare('DELETE FROM journal WHERE id = ?').run(id);
+  deleteWithImage('journal', id);
 }
 
 export const formatPrice = (price: number | null) =>

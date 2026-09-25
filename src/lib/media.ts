@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
+import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { db, UPLOADS_DIR } from './db';
 
@@ -17,6 +18,7 @@ export async function saveImage(input: Uint8Array): Promise<string> {
   const largest = Math.min(info.width, WIDTHS.at(-1)!);
   const widths = [...new Set([...WIDTHS.filter((w) => w < largest), largest])];
   const id = randomUUID();
+  mkdirSync(UPLOADS_DIR, { recursive: true });
 
   await Promise.all(widths.map((w) =>
     sharp(data).resize({ width: w }).webp({ quality: 82 }).toFile(path.join(UPLOADS_DIR, fileName(id, w))),
@@ -33,6 +35,21 @@ export function getMedia(id: string | null): Media | null {
     | { id: string; width: number; height: number; widths: string }
     | undefined;
   return row ? { ...row, widths: JSON.parse(row.widths) } : null;
+}
+
+const REFERENCING_TABLES = ['terroirs', 'wines', 'journal'] as const;
+
+/** Removes an image and its files once no record points to it; shared images stay. */
+export function deleteMediaIfUnused(id: string | null): void {
+  if (!id) return;
+  const inUse = REFERENCING_TABLES.some((table) =>
+    db().prepare(`SELECT 1 FROM ${table} WHERE image_id = ? LIMIT 1`).get(id),
+  );
+  const media = inUse ? null : getMedia(id);
+  if (!media) return;
+
+  db().prepare('DELETE FROM media WHERE id = ?').run(id);
+  for (const width of media.widths) rmSync(path.join(UPLOADS_DIR, fileName(id, width)), { force: true });
 }
 
 export function imageAttrs(media: Media) {
