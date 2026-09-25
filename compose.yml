@@ -7,7 +7,14 @@ services:
       context: .
       args:
         PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:8080}
+    environment:
+      ADMIN_LOGIN: ${ADMIN_LOGIN:?Задайте ADMIN_LOGIN в .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Задайте ADMIN_PASSWORD в .env}
+    volumes:
+      - site-data:/data
     ports:
       - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
+volumes:
+  site-data:

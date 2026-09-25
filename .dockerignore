@@ -6,3 +6,6 @@ dist
 .browser-qa
 *.log
 README.md
+
+data
+.env
